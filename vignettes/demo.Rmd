@@ -1,0 +1,46 @@
+---
+title: "demo"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{demo}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r}
+library(cellWise)
+dat = genevar()
+x = dat$x
+group = dat$group
+```
+
+
+```{r fig.width= 10}
+fit1 <- DDC(x)
+cellMap(fit1$remX, fit1$stdResid, columnlabels = c(1,rep(" ",18),200), rowlabels = c(1,rep(" ",98),100), columnangle = 0,
+        rowtitle = "Observations", columntitle = "Genes", sizetitles = 2,adjustrowlabels = 0.5, adjustcolumnlabels = 0.5)
+```
+
+
+
+```{r}
+fit = covCW(x, group = group)
+fit$cormatrix
+
+```
+
+
+
+
+
+
+
+
+
