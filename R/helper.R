@@ -41,7 +41,7 @@ genevar = function(n = 100, p = 15, e = 0.05, r = 0.5, gamma = 10, group = NULL)
     outl = rnorm(n = n*p, mean = gamma, sd = 1)
     rsign = sample(c(-1,1), size = n*p, replace = T)
     outlier = matrix(outl*rsign, nrow = n, ncol=p)
-    x = xr*(1-bi)+outlier*bi
+    x = xr*(1-bi)+(outlier+10)*bi
   }
   return(list(x = x, group = group, sigma = sigma, bi = bi))
 
