@@ -29,7 +29,7 @@ sigma = dat$sigma
 ```
 
 
-```{r echo=FALSE, eval=FALSE}
+```{r echo=FALSE, eval=F}
 V = matrix(1, nrow = 100, ncol = 20)
 V[!is.na(match(as.vector(x),boxplot(as.vector(x),plot=FALSE)$out))] = 0
 
@@ -73,7 +73,7 @@ cellMap(fit1$remX, fit1$stdResid, columnlabels = c(1,rep(" ",13),15), rowlabels 
 ```
 
 # Simulation
-In our simulations, we set $n = 100$, $p = 15$, $\mathbf{x}_i$ is sampled from $N(\pmb 0,\pmb\Sigma_{xx})$. The correlation structure among variables is given by $\Sigma _{ij} = \rho^{|i-j|}$ and we set $\rho = 0.5$. 
+In our simulations, we set $n = 100$, $p = 15$, $\mathbf{x}_i$ is sampled from $N(\pmb 10,\pmb\Sigma_{xx})$. The correlation structure among variables is given by $\Sigma _{ij} = \rho^{|i-j|}$ and we set $\rho = 0.5$. 
 
 Contamination proportions are set as $2\%$, $5\%$ and $10\%$ for all variables separately. Outlying cells of all variables are randomly generated from $0.5 N(\gamma, 1)+ 0.5N(-\gamma, 1)$ and we set 4 different kinds of outlying types. We vary $\gamma$ over the set $\{0,2,4,6,8,10\}$ to simulate outliers with different magnitudes. When we apply appropriate $\gamma$'s, those cells will be outlying cells but not not necessarily marginal outliers.
 
@@ -82,7 +82,7 @@ We compared 5 different methods: Minimum Covariance Determinant (MCD) estimator 
 To assess the performance of the considered methods, we {use} F-norm to measure the performance of each method.
 
 
-```{r echo=FALSE, eval = F}
+```{r echo=FALSE, eval = T}
 
 {
   ms = 1:10
@@ -96,7 +96,7 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
   m = 1
   p = 15
   e = 0.1
-  gamma = 10
+  gamma = 0
 }
 
 
@@ -131,7 +131,7 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
 ```
 
 
-```{r echo=FALSE, eval = F}
+```{r echo=FALSE, eval = T}
 
 library(doParallel)
 registerDoParallel(cores=8)
@@ -177,7 +177,7 @@ version = 0
 }
 ```
 
-```{r echo=FALSE, fig.width=10, eval=FALSE} 
+```{r echo=FALSE, fig.width=10, eval=T} 
 library(tidyverse)
 result1 = as.data.frame(t(as.data.frame(result)))
 #glimpse(result1)
