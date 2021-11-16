@@ -30,10 +30,10 @@ sigma = dat$sigma
 
 
 ```{r echo=FALSE, eval=FALSE}
-V = matrix(1, nrow = 100, ncol = 20)
+V = matrix(1, nrow = 100, ncol = 15)
 V[!is.na(match(as.vector(x),boxplot(as.vector(x),plot=FALSE)$out))] = 0
 
-fit = snipEM(X = x, V = V)
+fit = snipEM::snipEM(X = x, V = V)
 diag(fit$S)
 
 fit = covBC(x, group = c(rep(1,5), rep(2,5), rep(3,5)))
@@ -129,6 +129,21 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
 }
 
 ```
+
+```{r}
+library(inline)
+openblas.set.num.threads <- cfunction( signature(ipt="integer"),
+                                       body = 'openblas_set_num_threads(*ipt);',
+                                       otherdefs = c ('extern void openblas_set_num_threads(int);'),
+                                       libargs = c ('/usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so'),
+                                       language = "C",
+                                       convention = ".C"
+)
+openblas.set.num.threads(1)
+```
+
+
+
 
 
 ```{r echo=FALSE, eval = F}
