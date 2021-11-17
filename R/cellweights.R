@@ -14,8 +14,7 @@ covCW = function(x){
   n = dim(x)[1]
   p = dim(x)[2]
 
-  wts = matrix(1, nrow = n, ncol = p)
-  wts[!is.na(match(as.vector(x),boxplot(as.vector(x),plot=FALSE)$out))] = 0
+  wts= apply(x,2, function(xvec){as.numeric(is.na(match(xvec, boxplot(xvec, plot = FALSE)$out)))} )
   wts = wts%*%diag(sqrt(n/colSums(wts)))
   muhat = colSums(x*wts)/colSums(wts)
   xcenter = x - rep(1,n)%*%t(muhat)
