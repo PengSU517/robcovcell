@@ -25,7 +25,7 @@ library(snipEM)
 ```
 
 
-```{r}
+```{r echo=FALSE, eval=F}
 d     <- 10
 mu    <- rep(0, d)
 Sigma <- generateCorMat(d = d, corrType = "A09")
@@ -45,11 +45,7 @@ data2 = robcovcell::genevar(n = 100, p = 10, e = 0.2, r = -0.9, gamma = 4,
 x2 <- data2$x
 pairs(x2[,1:5])
 
-```
 
-
-
-```{r echo=FALSE, eval=F}
 V = matrix(1, nrow = 100, ncol = 10)
 V[!is.na(match(as.vector(x),boxplot(as.vector(x),plot=FALSE)$out))] = 0
 
@@ -85,7 +81,7 @@ The second approach is based on blocking and conquering methods. First, we use c
 For simplicity, here we assume that we know outlying types of all variables.
 
 
-```{r echo=FALSE}
+```{r echo=FALSE, eval=FALSE}
 
 fit1 <- DDC(x[1:20,])
 cellMap(fit1$remX, fit1$stdResid, columnlabels = c(1,rep(" ",13),15), rowlabels = c(1,rep(" ",18),20), columnangle = 0,
@@ -105,20 +101,14 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
 ```{r echo=FALSE, eval = T}
 
 {
-  ms = 1:20
+  ms = 1:2
   ps = 10
   es = c(0.02, 0.05, 0.1,0.2)
   gammas = seq(0, 10, 2)
 }
 
 
-{
-  m = 1
-  n = 100
-  p = 10
-  e = 0.1
-  gamma = 0
-}
+
 
 
 {
@@ -148,16 +138,16 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
               MCD = mcdf,
               OGK = ogkf,
               Pair = pairf,
-              snipEM = snipEMf#,
+              snipEM = snipEMf,
               #Block = Blockf,
-              #DI = DIf
+              DI = DIf
               
   )
 }
 
 ```
 
-```{r}
+```{r eval=FALSE}
 library(inline)
 openblas.set.num.threads <- cfunction( signature(ipt="integer"),
                                        body = 'openblas_set_num_threads(*ipt);',
@@ -193,6 +183,7 @@ version = 0
           100*which(ps==p) + 1000*which(ms==m) + version 
         #set.seed(seed = seed)
         
+        n=100
         mu = rep(10,p)
         Sigma = cellWise::generateCorMat(d = p, corrType = "A09")
         #dataset = cellWise::generateData(n = n, d = p, mu = mu, Sigma = Sigma, perout = e,
@@ -207,9 +198,9 @@ version = 0
                    mcd = NULL, 
                    ogk = NULL, 
                    pair = NULL,
-                   snipem = NULL#,
+                   snipem = NULL,
                    #block = NULL,
-                   #di = NULL
+                   di = NULL
                    )
         for (mtd in 1:length(mtds)) {
           covmatrix = mtds[[mtd]](x)
