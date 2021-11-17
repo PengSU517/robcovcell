@@ -29,14 +29,16 @@ library(snipEM)
 set.seed(1)
 d     <- 10
 mu    <- rep(0, d)
-Sigma <-cellWise::generateCorMat(d = d, corrType = "A09")
 
+Sigma <- cellWise:: generateCorMat(d = d, corrType = "A09")
 n      <- 100 # number of observations
 outlierType   <- "cellwiseStructured" # type of cellwise outliers
 perout <- 0.2 # percentage of outliers
 gamma  <- 5 # how far the outliers are from the center
 
-data  <- cellWise::generateData(n, d, mu, Sigma, perout = 0.2,
+
+data  <- cellWise::  generateData(n, d, mu, Sigma, perout,
+
                       gamma = 4, outlierType) 
 x <- data$X
 pairs(x[,1:5])
@@ -102,7 +104,7 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
 ```{r echo=FALSE, eval = T}
 
 {
-  ms = 1:2
+  ms = 1:20
   ps = 10
   es = c(0.02, 0.05, 0.1,0.2)
   gammas = seq(0, 10, 2)
@@ -115,12 +117,8 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
   gamma = 10
 }
 
-
-
-
-
 {
-  cwf = function(x){covCW(x)$covmatrix}
+  cwf = function(x){robcovcell::covCW(x)$covmatrix}
   mcdf = function(x){robustbase::covMcd(x)$cov}
   ogkf = function(x){robustbase::covOGK(x, sigmamu = robustbase::s_Qn)$cov}
   pairf = function(x){robcovsel::covf(x, cor.method = "pair", 
@@ -129,8 +127,8 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
   snipEMf = function(x){
     n = dim(x)[1]
     p = dim(x)[2]
-    V = matrix(1, nrow = n, ncol = p)
-    V[!is.na(match(as.vector(x),boxplot(as.vector(x),plot=FALSE)$out))] = 0
+    V = apply(x,2, function(xvec){as.numeric(is.na(match(xvec, boxplot(xvec, plot = FALSE)$out)))} )
+    
     snipEM::snipEM(X = x, V = V)$S}
   
   Blockf = function(x){
@@ -147,9 +145,9 @@ maxCol = 0.25)$cov)
               MCD = mcdf,
               OGK = ogkf,
               Pair = pairf,
-              snipEM = snipEMf,
+              snipEM = snipEMf#,
               #Block = Blockf,
-              DI = DIf
+              #DI = DIf
               
   )
 }
@@ -165,7 +163,7 @@ openblas.set.num.threads <- cfunction( signature(ipt="integer"),
                                        language = "C",
                                        convention = ".C"
 )
-openblas.set.num.threads(2)
+openblas.set.num.threads(1)
 ```
 
 
@@ -193,7 +191,7 @@ version = 0
         set.seed(seed = seed)
         
         n=100
-        mu = rep(10,p)
+        mu = rep(0,p)
         Sigma = cellWise::generateCorMat(d = p, corrType = "A09")
         #dataset = cellWise::generateData(n = n, d = p, mu = mu, Sigma = Sigma, perout = e,
         #              gamma = gamma, outlierType = "cellwiseStructured")
@@ -207,9 +205,9 @@ version = 0
                    mcd = NULL, 
                    ogk = NULL, 
                    pair = NULL,
-                   snipem = NULL,
+                   snipem = NULL#,
                    #block = NULL,
-                   di = NULL
+                   #di = NULL
                    )
         for (mtd in 1:length(mtds)) {
           covmatrix = mtds[[mtd]](x)
@@ -229,7 +227,7 @@ version = 0
 }
 ```
 
-```{r echo=FALSE, eval=T} 
+```{r echo=FALSE, fig.width=15, eval=T} 
 library(tidyverse)
 result1 = as.data.frame(t(as.data.frame(result)))
 #glimpse(result1)
@@ -244,7 +242,7 @@ summary$e = factor(summary$e, labels = c("e = 2%","e = 5%","e = 10%", "e = 20%")
 #glimpse(summary)
 
 
-p1 = ggplot(data = summary, aes(x = gamma,y = F_norm, color = Method ))+geom_line()+geom_point()+facet_wrap(~e) +
+p1 = ggplot(data = summary, aes(x = gamma,y = F_norm, color = Method ))+geom_line()+geom_point()+facet_wrap(~e, ncol = 4) +
   scale_x_continuous(breaks=seq(0,12,2)) +
   #ylim(0,20) +
   labs(fill = "", x = expression(gamma*": magnitude of outlyingness"), y = expression(Fnorm))+ 
@@ -252,7 +250,11 @@ p1 = ggplot(data = summary, aes(x = gamma,y = F_norm, color = Method ))+geom_lin
 
 p1
 
-p2 = ggplot(data = summary, aes(x = gamma,y = KL_div, color = Method ))+geom_line()+geom_point()+facet_wrap(~e) +
+
+```
+
+```{r echo=FALSE, fig.width=15, eval=T} 
+p2 = ggplot(data = summary, aes(x = gamma,y = KL_div, color = Method ))+geom_line()+geom_point()+facet_wrap(~e, ncol = 4) +
   scale_x_continuous(breaks=seq(0,12,2)) +
   #ylim(0,20) +
   labs(fill = "", x = expression(gamma*": magnitude of outlyingness"), y = expression(KLdiv))+ 
