@@ -36,7 +36,7 @@ To assess the performance of the considered methods, we {use} F-norm and KL-dive
 ```{r echo=FALSE, eval = T}
 
 {
-  ms = 1:20
+  ms = 1:2
   ps = 10
   es = c(0.02, 0.05, 0.1,0.2)
   gammas = seq(0, 10, 2)
