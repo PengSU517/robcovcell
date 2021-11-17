@@ -29,10 +29,6 @@ sigma = dat$sigma
 ```
 
 
-<<<<<<< HEAD
-```{r echo=FALSE, eval=FALSE}
-V = matrix(1, nrow = 100, ncol = 15)
-=======
 ```{r echo=FALSE, eval=F}
 V = matrix(1, nrow = 100, ncol = 20)
 >>>>>>> 4d8e60bf7b79e477e483fdd2121c73dd999322e9
@@ -154,7 +150,7 @@ openblas.set.num.threads(1)
 ```{r echo=FALSE, eval = T}
 
 library(doParallel)
-registerDoParallel(cores=8)
+registerDoParallel(cores=10)
 #getDoParWorkers()
 
 # parallel computation loops
