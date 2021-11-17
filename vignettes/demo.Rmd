@@ -26,16 +26,17 @@ library(snipEM)
 
 
 ```{r echo=FALSE, eval=F}
+set.seed(1)
 d     <- 10
 mu    <- rep(0, d)
-Sigma <- generateCorMat(d = d, corrType = "A09")
+Sigma <-cellWise::generateCorMat(d = d, corrType = "A09")
 
 n      <- 100 # number of observations
 outlierType   <- "cellwiseStructured" # type of cellwise outliers
 perout <- 0.2 # percentage of outliers
 gamma  <- 5 # how far the outliers are from the center
 
-data  <- generateData(n, d, mu, Sigma, perout,
+data  <- cellWise::generateData(n, d, mu, Sigma, perout = 0.2,
                       gamma = 4, outlierType) 
 x <- data$X
 pairs(x[,1:5])
@@ -107,6 +108,13 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
   gammas = seq(0, 10, 2)
 }
 
+{
+  m = 1
+  p = 10
+  e = 0.1
+  gamma = 10
+}
+
 
 
 
@@ -131,7 +139,8 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
   }
   
   DIf = function(x){
-    suppressMessages(cellWise::DI(x)$cov)
+    suppressMessages(cellWise::DI(x ,initEst = "DDCWcov", crit = 0.01, maxits = 10, quant = 0.99,
+maxCol = 0.25)$cov)
   }
   
   mtds = list(Cellweight = cwf, 
@@ -156,7 +165,7 @@ openblas.set.num.threads <- cfunction( signature(ipt="integer"),
                                        language = "C",
                                        convention = ".C"
 )
-openblas.set.num.threads(1)
+openblas.set.num.threads(2)
 ```
 
 
@@ -181,7 +190,7 @@ version = 0
         
         seed = which(gammas==gamma) + 10*which(es==e) +
           100*which(ps==p) + 1000*which(ms==m) + version 
-        #set.seed(seed = seed)
+        set.seed(seed = seed)
         
         n=100
         mu = rep(10,p)
