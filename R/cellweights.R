@@ -14,7 +14,7 @@ covCW = function(x){
   n = dim(x)[1]
   p = dim(x)[2]
 
-  wts= apply(x,2, function(xvec){as.numeric(is.na(match(xvec, boxplot(xvec, plot = FALSE)$out)))} )
+  wts= apply(x,2, function(xvec){as.numeric( robustbase::covMcd(xvec)$mcd.wt )})
   wts = wts%*%diag(sqrt(n/colSums(wts)))
   muhat = colSums(x*wts)/colSums(wts)
   xcenter = x - rep(1,n)%*%t(muhat)
