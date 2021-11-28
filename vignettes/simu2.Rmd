@@ -36,12 +36,20 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
 ```{r echo=FALSE, eval = T}
 
 {
-  ms = 1:100
+  ms = 1:10
   ps = 50
-  es = c(0.02, 0.05, 0.1, 0.2)
+  es = c(0, 0.02, 0.05, 0.1)
   gammas = seq(0, 10, 2)
 }
 
+
+{
+  m = 1
+  p = 10
+  e = 0.1
+  gamma = 10
+  sigmatype = "A09"
+}
 
 {
   cwf = function(x){robcovcell::covCW(x)$covmatrix}
@@ -68,8 +76,8 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
   }
   
   mtds = list(Cellweight = cwf, 
-              MCD = mcdf,
-              OGK = ogkf,
+              #MCD = mcdf,
+              #OGK = ogkf,
               Pair = pairf,
               #snipEM = snipEMf,
               Block = Blockf#,
@@ -112,20 +120,18 @@ version = 0
       foreach(e = es)%:%
       foreach(gamma = gammas)%dopar% {
         
-        seed = which(gammas==gamma) + 10*which(es==e) +
-          100*which(ps==p) + 1000*which(ms==m) + version 
+        seed = m + version 
         set.seed(seed = seed)
         
         n=100
-        mu = rep(0,p)
-        Sigma = cellWise::generateCorMat(d = p, corrType = "A09")
-        dataset = robcovcell::genevar(n = n, p = p, e = e, gamma = gamma, 
-                                      mu = mu, sigma = Sigma, type = "blocked")
+        dataset = robcovcell::genevar(n = n, p = p, e = e, gamma = gamma, r = 0.5,
+                                      type = "blocked")
         x = dataset$x
+        Sigma = dataset$sigma
         
         rst = list(cw = NULL, 
-                   mcd = NULL, 
-                   ogk = NULL, 
+                   #mcd = NULL, 
+                   #ogk = NULL, 
                    pair = NULL,
                    #snipem = NULL,
                    block = NULL#,
@@ -162,7 +168,7 @@ summary = result1 %>% group_by(n,p,e,gamma,mtd) %>% summarise(
   F_norm = mean(Fnorm, na.rm = T), KL_div = mean(KLdiv, na.rm = T)
   ) %>% ungroup()
 summary = summary %>% mutate(Method = factor(mtd, levels = c("MCD",  "OGK", "Pair","snipEM", "Cellweight", "Block","DI")))
-summary$e = factor(summary$e, labels = c("e = 2%","e = 5%","e = 10%", "e = 20%"))
+#summary$e = factor(summary$e, labels = c("e = 2%","e = 5%","e = 10%"#, "e = 20%"  ))
 #glimpse(summary)
 
 

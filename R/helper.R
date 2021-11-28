@@ -16,7 +16,7 @@
 #' x = dat$x
 
 
-genevar = function(n = 100, p = 15, e = 0.2, r = 0.9, gamma = 10, mu, sigma, type){
+genevar = function(n = 100, p = 15, e = 0.2, r = 0.9, gamma = 10, mu = NULL, sigma, type){
 
   if(is.null(mu)){
     mu = rep(10,p)
@@ -50,7 +50,7 @@ genevar = function(n = 100, p = 15, e = 0.2, r = 0.9, gamma = 10, mu, sigma, typ
         muk = mu[labels]
         sigmak = sigma[labels, labels]
         u = eigen(sigmak)$vectors[,k]
-        v = gamma*sqrt(k)*t(u)/mahalanobis(u+muk, muk, sigmak)
+        v = gamma*sqrt(k)*t(u)/sqrt(mahalanobis(u, muk, sigmak))
         outl[labels] = v
       }
 

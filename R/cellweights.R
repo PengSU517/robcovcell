@@ -10,11 +10,13 @@ require(robustbase)
 #' @export
 #'
 #' @examples
-covCW = function(x){
+covCW = function(x, wts = NULL){
   n = dim(x)[1]
   p = dim(x)[2]
 
-  wts= apply(x,2, function(xvec){as.numeric( robustbase::covMcd(xvec)$mcd.wt )})
+  if(is.null(wts)){
+    wts= apply(x,2, function(xvec){as.numeric( robustbase::covMcd(xvec)$mcd.wt )})
+  }
   wts = wts%*%diag(sqrt(n/colSums(wts)))
   muhat = colSums(x*wts)/colSums(wts)
   xcenter = x - rep(1,n)%*%t(muhat)
@@ -42,9 +44,10 @@ covBC = function(x, group){
   n = dim(x)[1]
   p = dim(x)[2]
 
-  covmatrix = robcovsel::covf(x, cor.method = "pair",
-                              scale.method = "qn", pda.method = F)$covmatrix
-  covmatrix[group!=3, group!=3] = robustbase::covMcd(x[,group!=3])$cov
+  covmatrix = robcovcell::covCW(x)$covmatrix
+    #robcovsel::covf(x, cor.method = "pair",
+    #                          scale.method = "qn", pda.method = F)$covmatrix
+  #covmatrix[group!=3, group!=3] = robustbase::covMcd(x[,group!=3])$cov
   covmatrix[group==1, group==1] = cov(x[,group==1])
   scale = sqrt(diag(covmatrix))
   cormatrix = (diag(1/scale))%*%covmatrix%*%(diag(1/scale))
