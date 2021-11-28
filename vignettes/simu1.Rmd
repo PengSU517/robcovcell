@@ -73,7 +73,7 @@ $$
 ```{r echo=FALSE, eval = T}
 
 {
-  ms = 1:100
+  ms = 1:10
   ps = 10
   es = c(0, 0.1, 0.2)
   gammas = seq(1, 10, 1)

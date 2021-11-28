@@ -1,5 +1,5 @@
 ---
-title: "Repeated simulation"
+title: "Simulation with structured outlying cells"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{demo}
@@ -24,75 +24,78 @@ library(robcovcell)
 ```
 
 
-```{r echo=FALSE, eval=FALSE}
-n=100
-mu = rep(0,p)
-Sigma = cellWise::generateCorMat(d = p, corrType = sigmatype)
 
-set.seed(seed = m)
-dataset = cellWise::generateData(n = n, d = p, mu = mu, Sigma = Sigma, perout = e,
-              gamma = gamma, outlierType = "cellwiseStructured")
-X = dataset$X
-
-DI.out <- cellWise:: DI(X)
-DI.out$cov
-
-```
 
 ```{r echo=FALSE, eval = T}
 
-Grankf = function(x){
-  robcovsel::covf(x, cor.method = "gaussrank", scale.method = "qn", pda.method = F)$covmatrix
-}
-pairf = function(x){robcovsel::covf(x, cor.method = "pair", 
-                                    scale.method = "qn", 
-                                    pda.method = "nearpd")$covmatrix}
-snipEMf = function(x){
-  n = dim(x)[1]
-  p = dim(x)[2]
-  V = apply(x,2, function(xvec){as.numeric(is.na(match(xvec,boxplot(xvec,plot=FALSE)$out)))} )
-  
-  snipEM::snipEM(X = x, V = V)$S}
-DIf = function(x){
-  suppressMessages(cellWise::DI(x)$cov)
-}
-mtds = list(Grank = Grankf,
-            Pair = pairf,
-            snipEM = snipEMf,
-            DI = DIf
-            
-)
-
-```
-
-
-```{r test}
 {
   m = 1
   p = 10
-  e = 0
+  e = 0.1
   gamma = 10
   sigmatype = "A09"
 }
 
-set.seed(seed = m)
+
+
+{
+  Grankf = function(x){
+    robcovsel::covf(x, cor.method = "gaussrank", scale.method = "qn", pda.method = F)$covmatrix
+  }
+  pairf = function(x){robcovsel::covf(x, cor.method = "pair", 
+                                      scale.method = "qn", 
+                                      pda.method = "nearpd")$covmatrix}
+  snipEMf = function(x){
+    n = dim(x)[1]
+    p = dim(x)[2]
+    V = apply(x,2, function(xvec){as.numeric( robustbase::covMcd(xvec)$mcd.wt )} )
+    
+    snipEM::snipEM(X = x, V = V)$S}
+  
+
+  
+  mtds = list(Grank = Grankf,
+              Pair = pairf,
+              snipEM = snipEMf
+  )
+}
+
+```
+
+
+
+```{r}
+set.seed(seed = 2)
 n=100
 mu = rep(0,p)
 Sigma = cellWise::generateCorMat(d = p, corrType = sigmatype)
 dataset = cellWise::generateData(n = n, d = p, mu = mu, Sigma = Sigma, perout = e,
               gamma = gamma, outlierType = "cellwiseStructured")
 x = dataset$X
-rst = NULL
+indcells = dataset$indcells
+#dataset = robcovcell::genevar(n = n, p = p, e = e, gamma = gamma, 
+#                              mu = mu, sigma = Sigma, type = "structured")
+#x = dataset$x
+#bi = dataset$bi
+rst = list(grank = NULL,
+           pair = NULL,
+           snipem = NULL
+           )
 for (mtd in 1:length(mtds)) {
-          covmatrix = mtds[[mtd]](x)
-          Fnorm = matrixcalc::frobenius.norm(covmatrix-Sigma)
-          KLd = robcovcell::KLdiv(xhat = covmatrix, x0 = Sigma)
-          rst1 = c(m = m, n = 100, p = p, e = e, gamma = gamma, sigmatype = sigmatype,
-                           mtd = names(mtds)[mtd], Fnorm = Fnorm, KLdiv = KLd)
-          rst = rbind(rst,rst1)
-        }
-        rst
+  covmatrix = mtds[[mtd]](x)
+  Fnorm = matrixcalc::frobenius.norm(covmatrix-Sigma)
+  KLd = robcovcell::KLdiv(xhat = covmatrix, x0 = Sigma)
+  rst[[mtd]] = c(m = m, n = 100, p = p, e = e, gamma = gamma, sigmatype = sigmatype,
+                   mtd = names(mtds)[mtd], Fnorm = Fnorm, KLdiv = KLd)
+}
+rst
 ```
+
+
+
+
+
+
 
 
 ```{r echo = F,  eval=T}
@@ -106,6 +109,9 @@ openblas.set.num.threads <- cfunction( signature(ipt="integer"),
 )
 openblas.set.num.threads(1)
 ```
+
+
+
 
 
 ```{r echo=FALSE, message = F, eval = T}
@@ -122,6 +128,7 @@ library(doParallel)
 registerDoParallel(cores=20)
 #getDoParWorkers()
 
+
 # parallel computation loops
 {
   systemtime = system.time({
@@ -130,7 +137,6 @@ registerDoParallel(cores=20)
       foreach(p = ps)%:%
       foreach(e = es)%:%
       foreach(sigmatype = sigmatypes)%:%
-      foreach(mtd = 1:length(mtds))
       foreach(gamma = gammas)%dopar% {
         
         set.seed(seed = m)
@@ -140,12 +146,23 @@ registerDoParallel(cores=20)
         dataset = cellWise::generateData(n = n, d = p, mu = mu, Sigma = Sigma, perout = e,
                       gamma = gamma, outlierType = "cellwiseStructured")
         x = dataset$X
-        covmatrix = mtds[[mtd]](x)
-        Fnorm = matrixcalc::frobenius.norm(covmatrix-Sigma)
-        KLd = robcovcell::KLdiv(xhat = covmatrix, x0 = Sigma)
-        rst = c(m = m, n = 100, p = p, e = e, gamma = gamma, sigmatype = sigmatype,
-                         mtd = names(mtds)[mtd], Fnorm = Fnorm, KLdiv = KLd)
+        indcells = dataset$indcells
+        #dataset = robcovcell::genevar(n = n, p = p, e = e, gamma = gamma, 
+        #                              mu = mu, sigma = Sigma, type = "structured")
+        #x = dataset$x
+        #bi = dataset$bi
 
+        rst = list(grank = NULL,
+                   pair = NULL,
+                   snipem = NULL
+                   )
+        for (mtd in 1:length(mtds)) {
+          covmatrix = mtds[[mtd]](x)
+          Fnorm = matrixcalc::frobenius.norm(covmatrix-Sigma)
+          KLd = robcovcell::KLdiv(xhat = covmatrix, x0 = Sigma)
+          rst[[mtd]] = c(m = m, n = 100, p = p, e = e, gamma = gamma, sigmatype = sigmatype,
+                           mtd = names(mtds)[mtd], Fnorm = Fnorm, KLdiv = KLd)
+        }
         rst
       }
   })
@@ -192,11 +209,13 @@ p1
 p2 = ggplot(data = summary, aes(x = gamma,y = KL_div, color = Method ))+geom_line()+geom_point()+
   facet_grid(sigmatype~e)+
   scale_x_continuous(breaks=seq(0,12,2)) +
-  #ylim(0,100) +
+  #ylim(0,150) +
   labs(fill = "", x = expression(gamma*": magnitude of outlyingness"), y = expression(KLdiv))+ 
     theme(text= element_text(size=10))
 
 p2
+
+
 ```
 
 
