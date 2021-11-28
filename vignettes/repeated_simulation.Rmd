@@ -1,0 +1,188 @@
+---
+title: "Repeated simulation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{demo}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE, 
+  message = F, 
+  warning = F , 
+  comment = "#>"
+)
+```
+
+```{r echo=FALSE}
+library(cellWise)
+library(snipEM)
+library(robcovcell)
+#remotes::install_github('cran/snipEM')
+```
+
+
+
+```{r echo=FALSE, eval = T}
+
+Grankf = function(x){
+  robcovsel::covf(x, cor.method = "gaussrank", scale.method = "qn", pda.method = F)$covmatrix
+}
+pairf = function(x){robcovsel::covf(x, cor.method = "pair", 
+                                    scale.method = "qn", 
+                                    pda.method = "nearpd",lmin = 0)$covmatrix}
+snipEMf = function(x){
+  n = dim(x)[1]
+  p = dim(x)[2]
+  V = apply(x,2, function(xvec){as.numeric(is.na(match(xvec,boxplot(xvec,plot=FALSE)$out)))} )
+  
+  snipEM::snipEM(X = x, V = V)$S}
+DIf = function(x){
+  suppressMessages(cellWise::DI(x)$cov)
+}
+mtds = list(Grank = Grankf,
+            Pair = pairf,
+            snipEM = snipEMf,
+            DI = DIf
+            
+)
+
+```
+
+
+```{r test}
+{
+  m = 1
+  p = 10
+  e = 0
+  gamma = 10
+  sigmatype = "A09"
+}
+
+set.seed(seed = m)
+n=100
+mu = rep(0,p)
+Sigma = cellWise::generateCorMat(d = p, corrType = sigmatype)
+dataset = cellWise::generateData(n = n, d = p, mu = mu, Sigma = Sigma, perout = e,
+              gamma = gamma, outlierType = "cellwiseStructured")
+x = dataset$X
+rst = NULL
+for (mtd in 1:length(mtds)) {
+          covmatrix = mtds[[mtd]](x)
+          Fnorm = matrixcalc::frobenius.norm(covmatrix-Sigma)
+          KLd = robcovcell::KLdiv(xhat = covmatrix, x0 = Sigma)
+          rst1 = c(m = m, n = 100, p = p, e = e, gamma = gamma, sigmatype = sigmatype,
+                           mtd = names(mtds)[mtd], Fnorm = Fnorm, KLdiv = KLd)
+          rst = rbind(rst,rst1)
+        }
+        rst
+```
+
+
+```{r echo = F,  eval=T}
+library(inline)
+openblas.set.num.threads <- cfunction( signature(ipt="integer"),
+                                       body = 'openblas_set_num_threads(*ipt);',
+                                       otherdefs = c ('extern void openblas_set_num_threads(int);'),
+                                       libargs = c ('/usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so'),
+                                       language = "C",
+                                       convention = ".C"
+)
+openblas.set.num.threads(1)
+```
+
+
+```{r echo=FALSE, message = F, eval = T}
+
+{
+  ms = 1:10
+  ps = 10
+  es = c(0, 0.1, 0.2)
+  gammas = seq(1, 10, 1)
+  sigmatypes = c("ALYZ", "A09")
+}
+
+library(doParallel)
+registerDoParallel(cores=8)
+#getDoParWorkers()
+
+# parallel computation loops
+{
+  systemtime = system.time({
+    result <- foreach(m = ms, 
+                      .packages = c("robustbase","robcovsel", "robcovcell"))%:%
+      foreach(p = ps)%:%
+      foreach(e = es)%:%
+      foreach(sigmatype = sigmatypes)%:%
+      foreach(mtd = 1:length(mtds))%:%
+      foreach(gamma = gammas)%dopar% {
+        
+        set.seed(seed = m)
+        n=100
+        mu = rep(0,p)
+        Sigma = cellWise::generateCorMat(d = p, corrType = sigmatype)
+        dataset = cellWise::generateData(n = n, d = p, mu = mu, Sigma = Sigma, perout = e,
+                      gamma = gamma, outlierType = "cellwiseStructured")
+        x = dataset$X
+        covmatrix = mtds[[mtd]](x)
+        Fnorm = matrixcalc::frobenius.norm(covmatrix-Sigma)
+        KLd = robcovcell::KLdiv(xhat = covmatrix, x0 = Sigma)
+        rst = c(m = m, n = 100, p = p, e = e, gamma = gamma, sigmatype = sigmatype,
+                         mtd = names(mtds)[mtd], Fnorm = Fnorm, KLdiv = KLd)
+
+        rst
+      }
+  })
+  
+  
+  #systemtime
+  #save(result, file = "result_simu_p20.RData")
+}
+```
+
+```{r echo=FALSE, eval=T} 
+library(tidyverse)
+result1 = as.data.frame(t(as.data.frame(result)))
+#glimpse(result1)
+result1$Fnorm = as.numeric(result1$Fnorm)
+result1$gamma = as.numeric(result1$gamma)
+result1$KLdiv = as.numeric(result1$KLdiv)
+
+summary = result1 %>% group_by(n,p,e,gamma,sigmatype, mtd) %>% summarise(
+  F_norm = mean(Fnorm, na.rm = T), KL_div = mean(KLdiv, na.rm = T)) %>% ungroup()
+summary = summary %>% mutate(Method = factor(mtd, levels = c("Grank","Pearson","MCD",  "OGK", "Pair","snipEM", "snipEM2", "Cellweight", "Cellweight2", "DI", "DDC")))
+summary$e = factor(summary$e, labels = c("e = 0%",#"e = 5%",
+                                         "e = 10%","e = 20%"))
+summary$sigmatype = factor(summary$sigmatype, levels = c("ALYZ", "A09"))
+#glimpse(summary)
+```
+
+
+```{r echo=FALSE, fig.width=12, fig.height=8, eval=T}
+
+p1 = ggplot(data = summary, aes(x = gamma,y = F_norm, color = Method ))+geom_line()+geom_point()+
+  facet_grid(sigmatype~e ) +
+  scale_x_continuous(breaks=seq(0,12,2)) +
+  #ylim(0,5) +
+  labs(fill = "", x = expression(gamma*": magnitude of outlyingness"), y = expression(Fnorm))+ 
+    theme(text= element_text(size=10))
+
+p1
+
+
+```
+
+```{r echo=FALSE, fig.width=12, fig.height=8, eval=T} 
+p2 = ggplot(data = summary, aes(x = gamma,y = KL_div, color = Method ))+geom_line()+geom_point()+
+  facet_grid(sigmatype~e)+
+  scale_x_continuous(breaks=seq(0,12,2)) +
+  #ylim(0,100) +
+  labs(fill = "", x = expression(gamma*": magnitude of outlyingness"), y = expression(KLdiv))+ 
+    theme(text= element_text(size=10))
+
+p2
+```
+
+

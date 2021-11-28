@@ -1,5 +1,5 @@
 ---
-title: "simu1"
+title: "Simulation with structured outlying cells"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{demo}
@@ -19,27 +19,69 @@ knitr::opts_chunk$set(
 ```{r echo=FALSE}
 library(cellWise)
 library(snipEM)
+library(robcovcell)
 #remotes::install_github('cran/snipEM')
 ```
 
 
-# Simulation
-In our simulations, we set $n = 100$, $p = 10$, $\mathbf{x}_i$ is sampled from $N(\pmb 10,\pmb\Sigma_{xx})$. The correlation structure among variables is given by $\Sigma _{ij} = \rho^{|i-j|}$ and we set $\rho = -0.9$. 
+```{r echo=FALSE, eval=FALSE}
+n     <- 100
+d     <- 5
+mu    <- rep(0, d)
+Sigma = cellWise::generateCorMat(d = d, corrType = "A09")
+perout <- 0.1
+gamma <- 6
 
-Contamination proportions are set as $2\%$, $5\%$, $10\%$ and $20\%$ for all variables separately. Outlying cells of all variables are randomly generated as introduced in Raymaekers and Rousseeuw (2019).
+data <- generateData(n, d, mu, Sigma, perout, gamma, outlierType = "cellwiseStructured", seed  = 1)
+pairs(data$X)
 
-We compared 5 different methods: Minimum Covariance Determinant (MCD) estimator (Rousseeuw and van Driessen, 1999), Orthogonalized Gnanadesikan-Kettenring (OGK) Covariance Matrix estimator (Maronna and Zamar, 2002), GK pairwise estimator (Gnanadesikan and Kettenring, 1972), cellwise weighted estimator, snipEM estimator (Farcomeni 2014) and DI estimator (Raymaekers and Rousseeuw 2019). 
+data$indcells
+
+data2 = robcovcell::genevar(mu = mu, sigma = Sigma, n = n, p = d, e = perout,gamma = gamma, type = "structured")
+pairs(data2$x)
+
+x = data2$x
+
+
+fit = covCW(data2$x, wts = 1-data2$bi)
+fit$covmatrix
+
+wts = 1-data2$bi
+
+
+
+
+fit2 = covCW(data2$x)
+fit2$covmatrix
+
+```
+
+
+In our simulations, we set $n = 100$, $p = 10$, $\mathbf{x}_i$ is sampled from $N(\pmb 0,\pmb\Sigma_{xx})$. We consider two kinds of covariance matrices $\pmb\Sigma_{xx}$. Type ALYZ are the randomly generated covariance matrices of Agostinelli et al. (2015)
+8which typically have relatively small correlations. Type A09 is given by $\Sigma _{ij} = \rho^{|i-j|}$ and we set $\rho = -0.9$. 
+Contamination proportions are set as $0\%$, $10\%$ and $20\%$ for all variables separately. Outlying cells of all variables are randomly generated as introduced in Raymaekers and Rousseeuw (2019).
+
+We compared 5 different methods: Gaussrank estimator, GK pairwise estimator (Gnanadesikan and Kettenring, 1972), cellwise weighted estimator, snipEM estimator (Farcomeni 2014) and DDC estimator (Raymaekers and Rousseeuw 2019). 
 
 To assess the performance of the considered methods, we {use} F-norm and KL-divergence to measure the performance of each method.
+
+$$
+KL = \frac { 1 } { 2 } ( \operatorname { tr } ( \hat\Sigma  ^ { - 1 } \Sigma _ { 0 } ) + ( \hat\mu  - \mu _ { 0 } ) ^ { T } \hat\Sigma ^ { - 1 } ( \hat \mu - \mu _ { 0 } ) - p + \operatorname { ln } ( \frac { \operatorname { det } \hat\Sigma } { \operatorname { det } \Sigma _ { 0 } } ) )
+$$
 
 
 ```{r echo=FALSE, eval = T}
 
 {
+<<<<<<< HEAD
   ms = 1:2
+=======
+  ms = 1:100
+>>>>>>> 8d7dd692885a5073c1ddb4c7100776a1b48648fe
   ps = 10
-  es = c(0.02, 0.05, 0.1,0.2)
-  gammas = seq(0, 10, 2)
+  es = c(0, 0.1, 0.2)
+  gammas = seq(1, 10, 1)
+  sigmatypes = c("ALYZ", "A09")
 }
 
 {
@@ -47,47 +89,81 @@ To assess the performance of the considered methods, we {use} F-norm and KL-dive
   p = 10
   e = 0.1
   gamma = 10
+  sigmatype = "A09"
 }
 
 
 
 {
-  cwf = function(x){robcovcell::covCW(x)$covmatrix}
-  mcdf = function(x){robustbase::covMcd(x)$cov}
-  ogkf = function(x){robustbase::covOGK(x, sigmamu = robustbase::s_Qn)$cov}
-  pairf = function(x){robcovsel::covf(x, cor.method = "pair", 
-                                      scale.method = "qn", 
-                                      pda.method = F)$covmatrix}
-  snipEMf = function(x){
+  Grankf = function(x,bi){
+    robcovsel::covf(x, cor.method = "gaussrank", scale.method = "qn", pda.method = F)$covmatrix
+  }
+  cwf = function(x,bi){robcovcell::covCW(x)$covmatrix}
+  cw1f = function(x, bi){
     n = dim(x)[1]
     p = dim(x)[2]
-    V = apply(x,2, function(xvec){as.numeric(is.na(match(xvec, boxplot(xvec, plot = FALSE)$out)))} )
+    #wts = matrix(1, nrow = n, ncol = p)
+    #wts[indcells]=0
+    wts = 1-bi
+    robcovcell::covCW(x, wts = wts)$covmatrix
+    }
+  mcdf = function(x,indcells){robustbase::covMcd(x)$cov}
+  ogkf = function(x,indcells){robustbase::covOGK(x, sigmamu = robustbase::s_Qn)$cov}
+  pairf = function(x,indcells){robcovsel::covf(x, cor.method = "pair", 
+                                      scale.method = "qn", 
+                                      pda.method = "nearpd")$covmatrix}
+  snipEMf = function(x,bi){
+    n = dim(x)[1]
+    p = dim(x)[2]
+    V = apply(x,2, function(xvec){as.numeric( robustbase::covMcd(xvec)$mcd.wt )} )
     
     snipEM::snipEM(X = x, V = V)$S}
   
-  Blockf = function(x){
+  snipEM2f = function(x, bi){
+    n = dim(x)[1]
+    p = dim(x)[2]
+    
+    #V = matrix(1, nrow = n, ncol = p)
+    #V[indcells]=0
+    V = 1-bi
+    
+    snipEM::snipEM(X = x, V = V)$S
+    }
+  
+  Blockf = function(x, bi){
     covBC(x, group = c(rep(1,5), rep(2,5), rep(3,5)))$covmatrix
 
   }
   
-  DIf = function(x){
+  DIf = function(x, bi){
     suppressMessages(cellWise::DI(x)$cov)
   }
   
-  mtds = list(Cellweight = cwf, 
-              MCD = mcdf,
-              OGK = ogkf,
+  
+  DDCf = function(x, bi){
+    fit = cellWise::DDC(x)
+    cov(fit$Ximp)
+  }
+  
+  mtds = list(Grank = Grankf,
+              Cellweight = cwf, 
+              Cellweight2 = cw1f,
+              #MCD = mcdf,
+              #OGK = ogkf,
               Pair = pairf,
+              
               snipEM = snipEMf,
+              #snipEM2 = snipEM2f,
+              DDC = DDCf
               #Block = Blockf,
-              DI = DIf
+              #DI = DIf
               
   )
 }
 
 ```
 
-```{r eval=FALSE}
+```{r echo = F,  eval=T}
 library(inline)
 openblas.set.num.threads <- cfunction( signature(ipt="integer"),
                                        body = 'openblas_set_num_threads(*ipt);',
@@ -106,61 +182,62 @@ openblas.set.num.threads(1)
 ```{r echo=FALSE, message = F, eval = T}
 
 library(doParallel)
-registerDoParallel(cores=8)
+registerDoParallel(cores=20)
 #getDoParWorkers()
 
 # parallel computation loops
-version = 0
 {
   systemtime = system.time({
     result <- foreach(m = ms, 
                       .packages = c("robustbase","robcovsel", "robcovcell"))%:%
       foreach(p = ps)%:%
       foreach(e = es)%:%
+      foreach(sigmatype = sigmatypes)%:%
       foreach(gamma = gammas)%dopar% {
         
-        seed = which(gammas==gamma) + 10*which(es==e) +
-          100*which(ps==p) + 1000*which(ms==m) + version 
-        set.seed(seed = seed)
-        
+        set.seed(seed = m)
         n=100
         mu = rep(0,p)
-        Sigma = cellWise::generateCorMat(d = p, corrType = "A09")
+        Sigma = cellWise::generateCorMat(d = p, corrType = sigmatype)
         #dataset = cellWise::generateData(n = n, d = p, mu = mu, Sigma = Sigma, perout = e,
         #              gamma = gamma, outlierType = "cellwiseStructured")
         #x = dataset$X
+        #indcells = dataset$indcells
         dataset = robcovcell::genevar(n = n, p = p, e = e, gamma = gamma, 
                                       mu = mu, sigma = Sigma, type = "structured")
         x = dataset$x
-        
+        bi = dataset$bi
 
-        rst = list(cw = NULL, 
-                   mcd = NULL, 
-                   ogk = NULL, 
+        rst = list(grank = NULL,
+                   cw = NULL, 
+                   cw1 = NULL, 
+                   #mcd = NULL, 
+                   #ogk = NULL, 
                    pair = NULL,
                    snipem = NULL,
+                   #snipem2 = NULL,
+                   ddc = NULL
                    #block = NULL,
-                   di = NULL
+                   #di = NULL
                    )
         for (mtd in 1:length(mtds)) {
-          covmatrix = mtds[[mtd]](x)
+          covmatrix = mtds[[mtd]](x,bi)
           Fnorm = matrixcalc::frobenius.norm(covmatrix-Sigma)
           KLd = robcovcell::KLdiv(xhat = covmatrix, x0 = Sigma)
-          rst[[mtd]] = c(m = m, n = 100, p = p, e = e, gamma = gamma, 
-                           mtd = names(mtds)[mtd], seed =seed,  
-                           Fnorm = Fnorm, KLdiv = KLd)
+          rst[[mtd]] = c(m = m, n = 100, p = p, e = e, gamma = gamma, sigmatype = sigmatype,
+                           mtd = names(mtds)[mtd], Fnorm = Fnorm, KLdiv = KLd)
         }
         rst
       }
   })
   
   
-  systemtime
+  #systemtime
   #save(result, file = "result_simu_p20.RData")
 }
 ```
 
-```{r echo=FALSE, fig.width=15, eval=T} 
+```{r echo=FALSE, eval=T} 
 library(tidyverse)
 result1 = as.data.frame(t(as.data.frame(result)))
 #glimpse(result1)
@@ -168,16 +245,22 @@ result1$Fnorm = as.numeric(result1$Fnorm)
 result1$gamma = as.numeric(result1$gamma)
 result1$KLdiv = as.numeric(result1$KLdiv)
 
-summary = result1 %>% group_by(n,p,e,gamma,mtd) %>% summarise(
+summary = result1 %>% group_by(n,p,e,gamma,sigmatype, mtd) %>% summarise(
   F_norm = mean(Fnorm, na.rm = T), KL_div = mean(KLdiv, na.rm = T)) %>% ungroup()
-summary = summary %>% mutate(Method = factor(mtd, levels = c("MCD",  "OGK", "Pair","snipEM", "Cellweight","DI")))
-summary$e = factor(summary$e, labels = c("e = 2%","e = 5%","e = 10%", "e = 20%"))
+summary = summary %>% mutate(Method = factor(mtd, levels = c("Grank","Pearson","MCD",  "OGK", "Pair","snipEM", "snipEM2", "Cellweight", "Cellweight2", "DI", "DDC")))
+summary$e = factor(summary$e, labels = c("e = 0%",#"e = 5%",
+                                         "e = 10%","e = 20%"))
+summary$sigmatype = factor(summary$sigmatype, levels = c("ALYZ", "A09"))
 #glimpse(summary)
+```
 
 
-p1 = ggplot(data = summary, aes(x = gamma,y = F_norm, color = Method ))+geom_line()+geom_point()+facet_wrap(~e, ncol = 4) +
+```{r echo=FALSE, fig.width=12, fig.height=8, eval=T}
+
+p1 = ggplot(data = summary, aes(x = gamma,y = F_norm, color = Method ))+geom_line()+geom_point()+
+  facet_grid(sigmatype~e ) +
   scale_x_continuous(breaks=seq(0,12,2)) +
-  #ylim(0,20) +
+  #ylim(0,5) +
   labs(fill = "", x = expression(gamma*": magnitude of outlyingness"), y = expression(Fnorm))+ 
     theme(text= element_text(size=10))
 
@@ -186,10 +269,11 @@ p1
 
 ```
 
-```{r echo=FALSE, fig.width=15, eval=T} 
-p2 = ggplot(data = summary, aes(x = gamma,y = KL_div, color = Method ))+geom_line()+geom_point()+facet_wrap(~e, ncol = 4) +
+```{r echo=FALSE, fig.width=12, fig.height=8, eval=T} 
+p2 = ggplot(data = summary, aes(x = gamma,y = KL_div, color = Method ))+geom_line()+geom_point()+
+  facet_grid(sigmatype~e)+
   scale_x_continuous(breaks=seq(0,12,2)) +
-  #ylim(0,20) +
+  #ylim(0,100) +
   labs(fill = "", x = expression(gamma*": magnitude of outlyingness"), y = expression(KLdiv))+ 
     theme(text= element_text(size=10))
 

@@ -26,16 +26,19 @@ library(snipEM)
 
 
 ```{r echo=FALSE, eval=F}
+set.seed(1)
 d     <- 10
 mu    <- rep(0, d)
-Sigma <- cellWise:: generateCorMat(d = d, corrType = "A09")
 
+Sigma <- cellWise:: generateCorMat(d = d, corrType = "A09")
 n      <- 100 # number of observations
 outlierType   <- "cellwiseStructured" # type of cellwise outliers
 perout <- 0.2 # percentage of outliers
 gamma  <- 5 # how far the outliers are from the center
 
+
 data  <- cellWise::  generateData(n, d, mu, Sigma, perout,
+
                       gamma = 4, outlierType) 
 x <- data$X
 pairs(x[,1:5])
@@ -114,8 +117,6 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
   gamma = 10
 }
 
-
-
 {
   cwf = function(x){robcovcell::covCW(x)$covmatrix}
   mcdf = function(x){robustbase::covMcd(x)$cov}
@@ -136,16 +137,17 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
   }
   
   DIf = function(x){
-    suppressMessages(cellWise::DI(x)$cov)
+    suppressMessages(cellWise::DI(x ,initEst = "DDCWcov", crit = 0.01, maxits = 10, quant = 0.99,
+maxCol = 0.25)$cov)
   }
   
   mtds = list(Cellweight = cwf, 
               MCD = mcdf,
               OGK = ogkf,
               Pair = pairf,
-              snipEM = snipEMf,
+              snipEM = snipEMf#,
               #Block = Blockf,
-              DI = DIf
+              #DI = DIf
               
   )
 }
@@ -171,7 +173,7 @@ openblas.set.num.threads(1)
 ```{r echo=FALSE, message = F, eval = T}
 
 library(doParallel)
-registerDoParallel(cores=8)
+registerDoParallel(cores=20)
 #getDoParWorkers()
 
 # parallel computation loops
@@ -203,9 +205,9 @@ version = 0
                    mcd = NULL, 
                    ogk = NULL, 
                    pair = NULL,
-                   snipem = NULL,
+                   snipem = NULL#,
                    #block = NULL,
-                   di = NULL
+                   #di = NULL
                    )
         for (mtd in 1:length(mtds)) {
           covmatrix = mtds[[mtd]](x)

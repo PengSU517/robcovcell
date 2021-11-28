@@ -36,20 +36,26 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
 ```{r echo=FALSE, eval = T}
 
 {
+<<<<<<< HEAD
   ms = 1:20
   ps = 10
   es = c(0.02, 0.05, 0.1,0.2)
+=======
+  ms = 1:10
+  ps = 50
+  es = c(0, 0.02, 0.05, 0.1)
+>>>>>>> 8d7dd692885a5073c1ddb4c7100776a1b48648fe
   gammas = seq(0, 10, 2)
 }
+
 
 {
   m = 1
   p = 10
   e = 0.1
   gamma = 10
+  sigmatype = "A09"
 }
-
-
 
 {
   cwf = function(x){robcovcell::covCW(x)$covmatrix}
@@ -61,7 +67,7 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
   snipEMf = function(x){
     n = dim(x)[1]
     p = dim(x)[2]
-    V = apply(x,2, function(xvec){as.numeric(is.na(match(xvec, boxplot(xvec, plot = FALSE)$out)))} )
+    V = apply(x,2, function(xvec){as.numeric( robustbase::covMcd(xvec)$mcd.wt )} )
     
     snipEM::snipEM(X = x, V = V)$S}
   
@@ -76,10 +82,10 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
   }
   
   mtds = list(Cellweight = cwf, 
-              MCD = mcdf,
-              OGK = ogkf,
+              #MCD = mcdf,
+              #OGK = ogkf,
               Pair = pairf,
-              snipEM = snipEMf,
+              #snipEM = snipEMf,
               Block = Blockf#,
               #DI = DIf
               
@@ -88,7 +94,7 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
 
 ```
 
-```{r eval=FALSE}
+```{r echo = F, eval=FALSE}
 library(inline)
 openblas.set.num.threads <- cfunction( signature(ipt="integer"),
                                        body = 'openblas_set_num_threads(*ipt);',
@@ -107,7 +113,7 @@ openblas.set.num.threads(1)
 ```{r echo=FALSE, message = F, eval = T}
 
 library(doParallel)
-registerDoParallel(cores=8)
+registerDoParallel(cores=20)
 #getDoParWorkers()
 
 # parallel computation loops
@@ -120,26 +126,20 @@ version = 0
       foreach(e = es)%:%
       foreach(gamma = gammas)%do% {
         
-        seed = which(gammas==gamma) + 10*which(es==e) +
-          100*which(ps==p) + 1000*which(ms==m) + version 
+        seed = m + version 
         set.seed(seed = seed)
         
         n=100
-        mu = rep(0,p)
-        Sigma = cellWise::generateCorMat(d = p, corrType = "A09")
-        #dataset = cellWise::generateData(n = n, d = p, mu = mu, Sigma = Sigma, perout = e,
-        #              gamma = gamma, outlierType = "cellwiseStructured")
-        #x = dataset$X
-        dataset = robcovcell::genevar(n = n, p = p, e = e, gamma = gamma, 
-                                      mu = mu, sigma = Sigma, type = "structured")
+        dataset = robcovcell::genevar(n = n, p = p, e = e, gamma = gamma, r = 0.5,
+                                      type = "blocked")
         x = dataset$x
+        Sigma = dataset$sigma
         
-
         rst = list(cw = NULL, 
-                   mcd = NULL, 
-                   ogk = NULL, 
+                   #mcd = NULL, 
+                   #ogk = NULL, 
                    pair = NULL,
-                   snipem = NULL,
+                   #snipem = NULL,
                    block = NULL#,
                    #di = NULL
                    )
@@ -149,7 +149,8 @@ version = 0
           KLd = robcovcell::KLdiv(xhat = covmatrix, x0 = Sigma)
           rst[[mtd]] = c(m = m, n = 100, p = p, e = e, gamma = gamma, 
                            mtd = names(mtds)[mtd], seed =seed,  
-                           Fnorm = Fnorm, KLdiv = KLd)
+                           Fnorm = Fnorm, KLdiv = KLd
+                         )
         }
         rst
       }
@@ -161,7 +162,7 @@ version = 0
 }
 ```
 
-```{r echo=FALSE, fig.width=15, eval=T} 
+```{r echo=FALSE, fig.width=12, eval=T} 
 library(tidyverse)
 result1 = as.data.frame(t(as.data.frame(result)))
 #glimpse(result1)
@@ -170,13 +171,14 @@ result1$gamma = as.numeric(result1$gamma)
 result1$KLdiv = as.numeric(result1$KLdiv)
 
 summary = result1 %>% group_by(n,p,e,gamma,mtd) %>% summarise(
-  F_norm = mean(Fnorm, na.rm = T), KL_div = mean(KLdiv, na.rm = T)) %>% ungroup()
-summary = summary %>% mutate(Method = factor(mtd, levels = c("MCD",  "OGK", "Pair","snipEM", "Cellweight","DI")))
-summary$e = factor(summary$e, labels = c("e = 2%","e = 5%","e = 10%", "e = 20%"))
+  F_norm = mean(Fnorm, na.rm = T), KL_div = mean(KLdiv, na.rm = T)
+  ) %>% ungroup()
+summary = summary %>% mutate(Method = factor(mtd, levels = c("MCD",  "OGK", "Pair","snipEM", "Cellweight", "Block","DI")))
+#summary$e = factor(summary$e, labels = c("e = 2%","e = 5%","e = 10%"#, "e = 20%"  ))
 #glimpse(summary)
 
 
-p1 = ggplot(data = summary, aes(x = gamma,y = F_norm, color = Method ))+geom_line()+geom_point()+facet_wrap(~e, ncol = 4) +
+p1 = ggplot(data = summary, aes(x = gamma,y = F_norm, color = Method ))+geom_line()+geom_point()+facet_wrap(~e, ncol = 4, scales = "free") +
   scale_x_continuous(breaks=seq(0,12,2)) +
   #ylim(0,20) +
   labs(fill = "", x = expression(gamma*": magnitude of outlyingness"), y = expression(Fnorm))+ 
@@ -187,8 +189,8 @@ p1
 
 ```
 
-```{r echo=FALSE, fig.width=15, eval=T} 
-p2 = ggplot(data = summary, aes(x = gamma,y = KL_div, color = Method ))+geom_line()+geom_point()+facet_wrap(~e, ncol = 4) +
+```{r echo=FALSE, fig.width=12, eval=T} 
+p2 = ggplot(data = summary, aes(x = gamma,y = KL_div, color = Method ))+geom_line()+geom_point()+facet_wrap(~e, ncol = 4, scales = "free") +
   scale_x_continuous(breaks=seq(0,12,2)) +
   #ylim(0,20) +
   labs(fill = "", x = expression(gamma*": magnitude of outlyingness"), y = expression(KLdiv))+ 
