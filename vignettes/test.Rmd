@@ -1,5 +1,5 @@
 ---
-title: "test"
+title: "The problem of the function solve"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{test}
@@ -7,13 +7,124 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+$$
+KL = \frac { 1 } { 2 } ( \operatorname { tr } ( \hat\Sigma  ^ { - 1 } \Sigma _ { 0 } ) - p + \operatorname { ln } ( \frac { \operatorname { det } \hat\Sigma } { \operatorname { det } \Sigma _ { 0 } } ) )
+$$
+
+$$
+KL = \frac { 1 } { 2 } ( \operatorname { tr } ( \hat\Sigma  ^ { - 1 } \Sigma _ { 0 } ) - p + \operatorname { ln } ( { \operatorname { det } \hat\Sigma }  \Sigma _ { 0 }^{-1}  ) )
+$$
+
+
+
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
+
+library(tidyverse)
 ```
 
 ```{r setup}
-library(robcovcell)
+KLdiv1 = function(x0, xhat){
+  value = matrixcalc::matrix.trace(xhat%*%solve(x0)) + log(det(x0%*%solve(xhat))) - dim(x0)[1]
+  return(value)
+}
+
+
+KLdiv2 = function(x0, xhat){
+  value = matrixcalc::matrix.trace(xhat%*%MASS::ginv(x0)) + log(det(x0%*%MASS::ginv(xhat))) - dim(x0)[1]
+  return(value)
+}
+
+KLdiv3 = function(x0, xhat){
+  value = matrixcalc::matrix.trace(xhat%*%solve(x0)) + log(det(x0)/det(xhat)) - dim(x0)[1]
+  return(value)
+}
+
+KLdiv4 = function(x0, xhat){
+  value = matrixcalc::matrix.trace(xhat%*%MASS::ginv(x0)) + log(det(x0)/det(xhat)) - dim(x0)[1]
+  return(value)
+}
+
+
 ```
+
+
+```{r}
+{
+  n=100
+  p = 4
+  e = 0.1
+  gamma = 10
+  sigmatype = "ALYZ"
+}
+
+
+det = foreach(p = 2:10)%do%{
+  xhat = cellWise::generateCorMat(d = p, corrType = sigmatype) 
+  det(xhat%*%solve(xhat))
+}
+
+det
+```
+
+
+
+```{r echo = F,  eval=T, message=FALSE}
+library(inline)
+openblas.set.num.threads <- cfunction( signature(ipt="integer"),
+                                       body = 'openblas_set_num_threads(*ipt);',
+                                       otherdefs = c ('extern void openblas_set_num_threads(int);'),
+                                       libargs = c ('/usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so'),
+                                       language = "C",
+                                       convention = ".C"
+)
+openblas.set.num.threads(1)
+library(doParallel)
+registerDoParallel(cores=20)
+```
+
+
+```{r  echo = F,  eval=T}
+
+{
+  m = 2
+  n=100
+  p = 10
+  e = 0.1
+  gamma = 10
+  sigmatype = "ALYZ"
+}
+
+result <- foreach(m = 1:100, .combine = 'rbind',
+                  .packages = c("robustbase","robcovsel", "robcovcell"))%dopar% {
+    
+                    
+    set.seed(seed = m)
+    xhat = cellWise::generateCorMat(d = p, corrType = sigmatype)
+    x0 = cellWise::generateCorMat(d = p, corrType = sigmatype)
+    KLd1 = KLdiv1(xhat, x0)
+    KLd2 = KLdiv2(xhat, x0)
+    KLd3 = KLdiv3(xhat, x0)
+    KLd4 = KLdiv4(xhat, x0)
+    
+    rst = c(KLd1, KLd2, KLd3, KLd4)
+    rst
+
+                  }
+```
+
+
+```{r  echo = F,  eval=T, fig.width= 8, fig.height=8}
+colnames(result) = c("solve + det(x0)/det(xhat)", "ginv + det(x0)/det(xhat)", 
+                     "solve + det(x0 inv(xhat))", "ginv + det(x0 inv(xhat))")
+result = as.data.frame(result)
+
+dat = result %>% gather(key = "method", value = "KLdiv")
+
+ggplot(dat, aes(x = KLdiv)) + geom_histogram() + facet_wrap(.~method)
+
+```
+
