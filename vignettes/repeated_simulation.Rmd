@@ -23,7 +23,17 @@ library(robcovcell)
 #remotes::install_github('cran/snipEM')
 ```
 
+In our simulations, we set $n = 100$, $p = 10$, $\mathbf{x}_i$ is sampled from $N(\pmb 0,\pmb\Sigma_{xx})$. We consider two kinds of covariance matrices $\pmb\Sigma_{xx}$. Type ALYZ are the randomly generated covariance matrices of Agostinelli et al. (2015)
+8which typically have relatively small correlations. Type A09 is given by $\Sigma _{ij} = \rho^{|i-j|}$ and we set $\rho = -0.9$. 
+Contamination proportions are set as $0\%$, $10\%$ and $20\%$ for all variables separately. Outlying cells of all variables are randomly generated as introduced in Raymaekers and Rousseeuw (2019).
 
+We compared 5 different methods: Gaussrank estimator, GK pairwise estimator (Gnanadesikan and Kettenring, 1972), cellwise weighted estimator, snipEM estimator (Farcomeni 2014) and DDC estimator (Raymaekers and Rousseeuw 2019). 
+
+To assess the performance of the considered methods, we {use} F-norm and KL-divergence to measure the performance of each method.
+
+$$
+KL = \frac { 1 } { 2 } ( \operatorname { tr } ( \hat\Sigma  ^ { - 1 } \Sigma _ { 0 } ) - p + \operatorname { ln } ( \frac { \operatorname { det } \hat\Sigma } { \operatorname { det } \Sigma _ { 0 } } ) )
+$$
 
 
 ```{r echo=FALSE, eval = T}
@@ -52,48 +62,25 @@ library(robcovcell)
     
     snipEM::snipEM(X = x, V = V)$S}
   
+  cwf = function(x,bi){robcovcell::covCW(x)$covmatrix}
+  
+  DDCf = function(x, bi){
+    fit = cellWise::DDC(x)
+    cov(fit$Ximp) 
+    }
+  
 
   
   mtds = list(Grank = Grankf,
               Pair = pairf,
-              snipEM = snipEMf
+              snipEM = snipEMf,
+              Cellweight = cwf,
+              DDC = DDCf
+              
   )
 }
 
 ```
-
-
-
-```{r}
-set.seed(seed = 2)
-n=100
-mu = rep(0,p)
-Sigma = cellWise::generateCorMat(d = p, corrType = sigmatype)
-dataset = cellWise::generateData(n = n, d = p, mu = mu, Sigma = Sigma, perout = e,
-              gamma = gamma, outlierType = "cellwiseStructured")
-x = dataset$X
-indcells = dataset$indcells
-#dataset = robcovcell::genevar(n = n, p = p, e = e, gamma = gamma, 
-#                              mu = mu, sigma = Sigma, type = "structured")
-#x = dataset$x
-#bi = dataset$bi
-rst = list(grank = NULL,
-           pair = NULL,
-           snipem = NULL
-           )
-for (mtd in 1:length(mtds)) {
-  covmatrix = mtds[[mtd]](x)
-  Fnorm = matrixcalc::frobenius.norm(covmatrix-Sigma)
-  KLd = robcovcell::KLdiv(xhat = covmatrix, x0 = Sigma)
-  rst[[mtd]] = c(m = m, n = 100, p = p, e = e, gamma = gamma, sigmatype = sigmatype,
-                   mtd = names(mtds)[mtd], Fnorm = Fnorm, KLdiv = KLd)
-}
-rst
-```
-
-
-
-
 
 
 
@@ -117,10 +104,10 @@ openblas.set.num.threads(1)
 ```{r echo=FALSE, message = F, eval = T}
 
 {
-  ms = 1:10
+  ms = 1:100
   ps = 10
   es = c(0, 0.1, 0.2)
-  gammas = seq(1, 10, 1)
+  gammas = seq(0, 10, 1)
   sigmatypes = c("ALYZ", "A09")
 }
 
@@ -133,7 +120,7 @@ registerDoParallel(cores=20)
 {
   systemtime = system.time({
     result <- foreach(m = ms, 
-                      .packages = c("robustbase","robcovsel", "robcovcell"))%:%
+                      .packages = c("robustbase","robcovsel", "robcovcell", "cellWise", "snipEM"))%:%
       foreach(p = ps)%:%
       foreach(e = es)%:%
       foreach(sigmatype = sigmatypes)%:%
@@ -147,14 +134,10 @@ registerDoParallel(cores=20)
                       gamma = gamma, outlierType = "cellwiseStructured")
         x = dataset$X
         indcells = dataset$indcells
-        #dataset = robcovcell::genevar(n = n, p = p, e = e, gamma = gamma, 
-        #                              mu = mu, sigma = Sigma, type = "structured")
-        #x = dataset$x
-        #bi = dataset$bi
-
         rst = list(grank = NULL,
                    pair = NULL,
-                   snipem = NULL
+                   snipem = NULL,
+                   DDC = NULL
                    )
         for (mtd in 1:length(mtds)) {
           covmatrix = mtds[[mtd]](x)
@@ -188,6 +171,13 @@ summary$e = factor(summary$e, labels = c("e = 0%",#"e = 5%",
                                          "e = 10%","e = 20%"))
 summary$sigmatype = factor(summary$sigmatype, levels = c("ALYZ", "A09"))
 #glimpse(summary)
+
+```
+
+
+
+```{r echo=FALSE, fig.width=6, fig.height=6, eval=T}
+hist(result1$KLdiv)
 ```
 
 

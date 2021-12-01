@@ -82,7 +82,7 @@ genevar = function(n = 100, p = 15, e = 0.2, r = 0.9, gamma = 10, mu = NULL, sig
 
 
 KLdiv = function(x0, xhat){
-  value = matrixcalc::matrix.trace(xhat%*%solve(x0)) - log(det(xhat%*%solve(x0))) - dim(x0)[1]
+  value = matrixcalc::matrix.trace(xhat%*%solve(x0)) + log(det(x0)/det(xhat)) - dim(x0)[1]
   return(value)
 }
 
