@@ -27,8 +27,6 @@ In our simulations, we set $n = 100$, $p = 10$, $\mathbf{x}_i$ is sampled from $
 8which typically have relatively small correlations. Type A09 is given by $\Sigma _{ij} = \rho^{|i-j|}$ and we set $\rho = -0.9$. 
 Contamination proportions are set as $0\%$, $10\%$ and $20\%$ for all variables separately. Outlying cells of all variables are randomly generated as introduced in Raymaekers and Rousseeuw (2019).
 
-<<<<<<< HEAD
-=======
 We compared 5 different methods: Gaussrank estimator, GK pairwise estimator (Gnanadesikan and Kettenring, 1972), cellwise weighted estimator, snipEM estimator (Farcomeni 2014) and DDC estimator (Raymaekers and Rousseeuw 2019). 
 
 To assess the performance of the considered methods, we {use} F-norm and KL-divergence to measure the performance of each method.
@@ -38,7 +36,6 @@ KL = \frac { 1 } { 2 } ( \operatorname { tr } ( \hat\Sigma  ^ { - 1 } \Sigma _ {
 $$
 
 
->>>>>>> a6e4934eb43afd4ddeef8e0e6f81a4c2995e0194
 ```{r echo=FALSE, eval = T}
 
 {
@@ -59,7 +56,6 @@ Grankf = function(x){
   robcovsel::covf(x, cor.method = "gaussrank", scale.method = "qn", pda.method = F)$cormatrix
 }
 
-<<<<<<< HEAD
 pairf = function(x){robcovsel::covf(x, cor.method = "pair", 
                                     scale.method = "qn", 
                                     pda.method = "nearpd")$cormatrix}
@@ -69,7 +65,7 @@ mtds = list(Grank = Grankf,
             Pair = pairf,
             snipEM = snipEMf
 )
-=======
+
 {
   Grankf = function(x){
     robcovsel::covf(x, cor.method = "gaussrank", scale.method = "qn", pda.method = F)$covmatrix
@@ -101,7 +97,6 @@ mtds = list(Grank = Grankf,
               
   )
 }
->>>>>>> a6e4934eb43afd4ddeef8e0e6f81a4c2995e0194
 
 ```
 
@@ -147,10 +142,7 @@ registerDoParallel(cores=8)
       foreach(p = ps)%:%
       foreach(e = es)%:%
       foreach(sigmatype = sigmatypes)%:%
-<<<<<<< HEAD
       foreach(mtd = 1:length(mtds))%:%
-=======
->>>>>>> 7df5a2cba75e119c032939ab71bb93bce5dae99e
       foreach(gamma = gammas)%dopar% {
         
         set.seed(seed = m)

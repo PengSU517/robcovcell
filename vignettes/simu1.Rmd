@@ -26,33 +26,29 @@ library(robcovcell)
 
 ```{r echo=FALSE, eval=FALSE}
 n     <- 100
-d     <- 5
-mu    <- rep(0, d)
-Sigma = cellWise::generateCorMat(d = d, corrType = "A09")
+p     <- 10
+mu    <- rep(0, p)
+Sigma = cellWise::generateCorMat(d = p, corrType = "ALYZ")
 perout <- 0.1
 gamma <- 6
 
-data <- generateData(n, d, mu, Sigma, perout, gamma, outlierType = "cellwiseStructured", seed  = 1)
+data <- cellWise::generateData(n, p, mu, Sigma, perout, gamma, outlierType = "cellwiseStructured")
 pairs(data$X)
 
 data$indcells
 
-data2 = robcovcell::genevar(mu = mu, sigma = Sigma, n = n, p = d, e = perout,gamma = gamma, type = "structured")
+data2 = robcovcell::genevar(mu = mu, sigma = Sigma, n = n, p = p, e = perout,gamma = gamma, type = "structured")
 pairs(data2$x)
 
+bi = data2$bi
 x = data2$x
+xvec = x[1,]
 
 
-fit = covCW(data2$x, wts = 1-data2$bi)
-fit$covmatrix
-
-wts = 1-data2$bi
-
-
-
-
-fit2 = covCW(data2$x)
-fit2$covmatrix
+fit = DE(x)
+sum((fit$wts - (1-bi))==-1)
+sum(bi)
+diag(fit$Sigma)
 
 ```
 
@@ -73,15 +69,7 @@ $$
 ```{r echo=FALSE, eval = T}
 
 {
-<<<<<<< HEAD
-<<<<<<< HEAD
   ms = 1:2
-=======
-  ms = 1:100
->>>>>>> 8d7dd692885a5073c1ddb4c7100776a1b48648fe
-=======
-  ms = 1:10
->>>>>>> 7df5a2cba75e119c032939ab71bb93bce5dae99e
   ps = 10
   es = c(0, 0.1, 0.2)
   gammas = seq(1, 10, 1)
@@ -99,68 +87,48 @@ $$
 
 
 {
-  Grankf = function(x,bi){
+  Grankf = function(x){
     robcovsel::covf(x, cor.method = "gaussrank", scale.method = "qn", pda.method = F)$covmatrix
   }
-  cwf = function(x,bi){robcovcell::covCW(x)$covmatrix}
-  cw1f = function(x, bi){
-    n = dim(x)[1]
-    p = dim(x)[2]
-    #wts = matrix(1, nrow = n, ncol = p)
-    #wts[indcells]=0
-    wts = 1-bi
-    robcovcell::covCW(x, wts = wts)$covmatrix
-    }
-  mcdf = function(x,indcells){robustbase::covMcd(x)$cov}
-  ogkf = function(x,indcells){robustbase::covOGK(x, sigmamu = robustbase::s_Qn)$cov}
-  pairf = function(x,indcells){robcovsel::covf(x, cor.method = "pair", 
+  cwf = function(x){robcovcell::covCW(x)$covmatrix}
+  mcdf = function(x){robustbase::covMcd(x)$cov}
+  ogkf = function(x){robustbase::covOGK(x, sigmamu = robustbase::s_Qn)$cov}
+  pairf = function(x){robcovsel::covf(x, cor.method = "pair", 
                                       scale.method = "qn", 
                                       pda.method = "nearpd")$covmatrix}
-  snipEMf = function(x,bi){
+  snipEMf = function(x){
     n = dim(x)[1]
     p = dim(x)[2]
     V = apply(x,2, function(xvec){as.numeric( robustbase::covMcd(xvec)$mcd.wt )} )
     
     snipEM::snipEM(X = x, V = V)$S}
-  
-  snipEM2f = function(x, bi){
-    n = dim(x)[1]
-    p = dim(x)[2]
-    
-    #V = matrix(1, nrow = n, ncol = p)
-    #V[indcells]=0
-    V = 1-bi
-    
-    snipEM::snipEM(X = x, V = V)$S
-    }
-  
-  Blockf = function(x, bi){
-    covBC(x, group = c(rep(1,5), rep(2,5), rep(3,5)))$covmatrix
 
+  Blockf = function(x){
+    p = dim(x)[2]
+    covBC(x, group = c(rep(1,p-5), rep(2,5)))$covmatrix
   }
   
-  DIf = function(x, bi){
+  DIf = function(x){
     suppressMessages(cellWise::DI(x)$cov)
   }
   
+  DEf = function(x){
+    DE(x, th = 0.99)$Sigma
+  }
   
-  DDCf = function(x, bi){
+  DDCf = function(x){
     fit = cellWise::DDC(x)
     cov(fit$Ximp)
   }
   
   mtds = list(Grank = Grankf,
               Cellweight = cwf, 
-              Cellweight2 = cw1f,
-              #MCD = mcdf,
-              #OGK = ogkf,
               Pair = pairf,
-              
               snipEM = snipEMf,
-              #snipEM2 = snipEM2f,
-              DDC = DDCf
+              DDC = DDCf,
               #Block = Blockf,
-              #DI = DIf
+              DI = DIf,
+              DE = DEf
               
   )
 }
@@ -201,31 +169,27 @@ registerDoParallel(cores=20)
         
         set.seed(seed = m)
         n=100
+        p = 10
         mu = rep(0,p)
         Sigma = cellWise::generateCorMat(d = p, corrType = sigmatype)
-        #dataset = cellWise::generateData(n = n, d = p, mu = mu, Sigma = Sigma, perout = e,
-        #              gamma = gamma, outlierType = "cellwiseStructured")
-        #x = dataset$X
-        #indcells = dataset$indcells
         dataset = robcovcell::genevar(n = n, p = p, e = e, gamma = gamma, 
                                       mu = mu, sigma = Sigma, type = "structured")
         x = dataset$x
-        bi = dataset$bi
 
         rst = list(grank = NULL,
                    cw = NULL, 
-                   cw1 = NULL, 
                    #mcd = NULL, 
                    #ogk = NULL, 
                    pair = NULL,
                    snipem = NULL,
                    #snipem2 = NULL,
-                   ddc = NULL
+                   ddc = NULL,
                    #block = NULL,
-                   #di = NULL
+                   di = NULL,
+                   de = NULL
                    )
         for (mtd in 1:length(mtds)) {
-          covmatrix = mtds[[mtd]](x,bi)
+          covmatrix = mtds[[mtd]](x)
           Fnorm = matrixcalc::frobenius.norm(covmatrix-Sigma)
           KLd = robcovcell::KLdiv(xhat = covmatrix, x0 = Sigma)
           rst[[mtd]] = c(m = m, n = 100, p = p, e = e, gamma = gamma, sigmatype = sigmatype,
@@ -251,7 +215,7 @@ result1$KLdiv = as.numeric(result1$KLdiv)
 
 summary = result1 %>% group_by(n,p,e,gamma,sigmatype, mtd) %>% summarise(
   F_norm = mean(Fnorm, na.rm = T), KL_div = mean(KLdiv, na.rm = T)) %>% ungroup()
-summary = summary %>% mutate(Method = factor(mtd, levels = c("Grank","Pearson","MCD",  "OGK", "Pair","snipEM", "snipEM2", "Cellweight", "Cellweight2", "DI", "DDC")))
+summary = summary %>% mutate(Method = factor(mtd, levels = c("Grank","Pearson","MCD", "OGK", "Pair","snipEM", "Cellweight", "DI", "DDC", "DE")))
 summary$e = factor(summary$e, labels = c("e = 0%",#"e = 5%",
                                          "e = 10%","e = 20%"))
 summary$sigmatype = factor(summary$sigmatype, levels = c("ALYZ", "A09"))

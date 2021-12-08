@@ -1,5 +1,5 @@
 ---
-title: "simu1"
+title: "Simulation with blocked outlying variables"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{demo}
@@ -26,28 +26,17 @@ library(snipEM)
 # Simulation
 In our simulations, we set $n = 100$, $p = 50$, $\mathbf{x}_i$ is sampled from $N(\pmb 10,\pmb\Sigma_{xx})$. The correlation structure among variables is given by $\Sigma _{ij} = \rho^{|i-j|}$ and we set $\rho = 0.5$. 
 
-Most variables are set as clean variables, which means they don't include any outliers. Only a few variables are contaminated. Contamination proportions are set as $2\%$, $5\%$, $10\%$ for those variables separately. Outlying values are randomly generated from $0.5 N(\gamma, 1)+ 0.5N(-\gamma, 1)$ and we set rowwise outlying variables and cellwise outlying variables seperately. We vary $\gamma$ over the set $\{0,2,4,6,8,10\}$ to simulate outliers with different magnitudes. When we apply appropriate $\gamma$'s, those cells will be outlying cells but not not necessarily marginal outliers.
-
-We compared 5 different methods: Minimum Covariance Determinant (MCD) estimator (Rousseeuw and van Driessen, 1999), Orthogonalized Gnanadesikan-Kettenring (OGK) Covariance Matrix estimator (Maronna and Zamar, 2002), GK pairwise estimator (Gnanadesikan and Kettenring, 1972), cellwise weighted estimator and blocked estimator. 
-
-To assess the performance of the considered methods, we {use} F-norm to measure the performance of each method.
+Most variables are set as clean variables, which means they don't include any outliers. Only a few (10\%) variables are contaminated. Contamination proportions are set as $2\%$, $5\%$, $10\%$ for those variables separately. Outlying values are randomly generated from $0.5 N(\gamma, 1)+ 0.5N(-\gamma, 1)$ and we set rowwise outlying variables and cellwise outlying variables seperately. We vary $\gamma$ over the set $\{0,2,4,6,8,10\}$ to simulate outliers with different magnitudes. When we apply appropriate $\gamma$'s, those cells will be outlying cells but not not necessarily marginal outliers.
 
 
 ```{r echo=FALSE, eval = T}
 
 {
-<<<<<<< HEAD
-  ms = 1:20
+  ms = 1:2
   ps = 10
-  es = c(0.02, 0.05, 0.1,0.2)
-=======
-  ms = 1:10
-  ps = 50
-  es = c(0, 0.02, 0.05, 0.1)
->>>>>>> 8d7dd692885a5073c1ddb4c7100776a1b48648fe
-  gammas = seq(0, 10, 2)
+  es = c(0, 0.1, 0.2)
+  gammas = seq(1, 10, 1)
 }
-
 
 {
   m = 1
@@ -57,58 +46,54 @@ To assess the performance of the considered methods, we {use} F-norm to measure 
   sigmatype = "A09"
 }
 
+
+
 {
+  Grankf = function(x){
+    robcovsel::covf(x, cor.method = "gaussrank", scale.method = "qn", pda.method = F)$covmatrix
+  }
   cwf = function(x){robcovcell::covCW(x)$covmatrix}
   mcdf = function(x){robustbase::covMcd(x)$cov}
   ogkf = function(x){robustbase::covOGK(x, sigmamu = robustbase::s_Qn)$cov}
   pairf = function(x){robcovsel::covf(x, cor.method = "pair", 
                                       scale.method = "qn", 
-                                      pda.method = F)$covmatrix}
+                                      pda.method = "nearpd")$covmatrix}
   snipEMf = function(x){
     n = dim(x)[1]
     p = dim(x)[2]
     V = apply(x,2, function(xvec){as.numeric( robustbase::covMcd(xvec)$mcd.wt )} )
     
     snipEM::snipEM(X = x, V = V)$S}
-  
+
   Blockf = function(x){
     p = dim(x)[2]
-    covBC(x, group = c(rep(1,p-10), rep(2,5), rep(3,5)))$covmatrix
-
+    covBC(x, group = c(rep(1,p-5), rep(2,5)))$covmatrix
   }
   
   DIf = function(x){
     suppressMessages(cellWise::DI(x)$cov)
   }
   
-  mtds = list(Cellweight = cwf, 
-              #MCD = mcdf,
-              #OGK = ogkf,
-              Pair = pairf,
-              #snipEM = snipEMf,
-              Block = Blockf#,
-              #DI = DIf
+  DEf = function(x){
+    DE(x, th = 0.99)$Sigma
+  }
+  
+  DDCf = function(x){
+    fit = cellWise::DDC(x)
+    cov(fit$Ximp)
+  }
+  
+  mtds = list(Pair = pairf,
+              snipEM = snipEMf,
+              DDC = DDCf,
+              Block = Blockf,
+              DI = DIf,
+              DE = DEf
               
   )
 }
 
 ```
-
-```{r echo = F, eval=FALSE}
-library(inline)
-openblas.set.num.threads <- cfunction( signature(ipt="integer"),
-                                       body = 'openblas_set_num_threads(*ipt);',
-                                       otherdefs = c ('extern void openblas_set_num_threads(int);'),
-                                       libargs = c ('/usr/lib/x86_64-linux-gnu/openblas-pthread/libblas.so'),
-                                       language = "C",
-                                       convention = ".C"
-)
-openblas.set.num.threads(1)
-```
-
-
-
-
 
 ```{r echo=FALSE, message = F, eval = T}
 
@@ -117,7 +102,6 @@ registerDoParallel(cores=20)
 #getDoParWorkers()
 
 # parallel computation loops
-version = 0
 {
   systemtime = system.time({
     result <- foreach(m = ms, 
@@ -126,7 +110,7 @@ version = 0
       foreach(e = es)%:%
       foreach(gamma = gammas)%do% {
         
-        seed = m + version 
+        seed = m
         set.seed(seed = seed)
         
         n=100
@@ -135,13 +119,12 @@ version = 0
         x = dataset$x
         Sigma = dataset$sigma
         
-        rst = list(cw = NULL, 
-                   #mcd = NULL, 
-                   #ogk = NULL, 
-                   pair = NULL,
-                   #snipem = NULL,
-                   block = NULL#,
-                   #di = NULL
+        rst = list(pair = NULL,
+                   snipem = NULL,
+                   ddc = NULL,
+                   block = NULL,
+                   di = NULL,
+                   de = NULL
                    )
         for (mtd in 1:length(mtds)) {
           covmatrix = mtds[[mtd]](x)

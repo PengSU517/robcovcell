@@ -19,7 +19,7 @@
 genevar = function(n = 100, p = 15, e = 0.2, r = 0.9, gamma = 10, mu = NULL, sigma, type){
 
   if(is.null(mu)){
-    mu = rep(10,p)
+    mu = rep(0,p)
     sigma = diag(rep(1^2,p))
     for (i in 1:p) {for (j in 1:p) {
       if (i !=j)sigma[i,j] = sqrt(sigma[i,i]*sigma[j,j])*r^abs(i-j)}}
@@ -27,11 +27,11 @@ genevar = function(n = 100, p = 15, e = 0.2, r = 0.9, gamma = 10, mu = NULL, sig
 
   if(type == "blocked"){
 
-    bi1 = matrix(0, nrow = n, ncol = p-10)
-    bi2 = matrix(sample(c(rep(1,e*n),rep(0,((1-e)*n)))), nrow = n, ncol = 5)
-    bi3 = apply(matrix(0, nrow = n, ncol = 5), 2,
+    bi1 = matrix(0, nrow = n, ncol = p-5)
+    #bi2 = matrix(sample(c(rep(1,e*n),rep(0,((1-e)*n)))), nrow = n, ncol = 5)
+    bi2 = apply(matrix(0, nrow = n, ncol = 5), 2,
                 function(xvec) {xvec[sample(x = 1:n, size = e*n)] = 1; return(xvec)})
-    bi = cbind(bi1, bi2, bi3)
+    bi = cbind(bi1, bi2)
 
     outl = rnorm(n = n*p, mean = gamma, sd = 1)
     rsign = sample(c(-1,1), size = n*p, replace = T)

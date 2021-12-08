@@ -24,6 +24,7 @@ knitr::opts_chunk$set(
 )
 
 library(tidyverse)
+library(doParallel)
 ```
 
 ```{r setup}
@@ -52,27 +53,8 @@ KLdiv4 = function(x0, xhat){
 ```
 
 
-```{r}
-{
-  n=100
-  p = 4
-  e = 0.1
-  gamma = 10
-  sigmatype = "ALYZ"
-}
 
-
-det = foreach(p = 2:10)%do%{
-  xhat = cellWise::generateCorMat(d = p, corrType = sigmatype) 
-  det(xhat%*%solve(xhat))
-}
-
-det
-```
-
-
-
-```{r echo = F,  eval=T, message=FALSE}
+```{r echo = F,  eval=F, message=FALSE}
 library(inline)
 openblas.set.num.threads <- cfunction( signature(ipt="integer"),
                                        body = 'openblas_set_num_threads(*ipt);',
@@ -82,7 +64,11 @@ openblas.set.num.threads <- cfunction( signature(ipt="integer"),
                                        convention = ".C"
 )
 openblas.set.num.threads(1)
-library(doParallel)
+
+```
+
+
+```{r}
 registerDoParallel(cores=20)
 ```
 
