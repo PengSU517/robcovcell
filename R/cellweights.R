@@ -55,6 +55,19 @@ covBC = function(x, group){
 }
 
 
+covBC2 = function(x, group){
+  n = dim(x)[1]
+  p = dim(x)[2]
+
+  covmatrix = cellWise::DI(x)$cov
+  covmatrix[group!=3, group!=3] = robustbase::covMcd(x[,group!=3])$cov
+  covmatrix[group==1, group==1] = cov(x[,group==1])
+  scale = sqrt(diag(covmatrix))
+  cormatrix = (diag(1/scale))%*%covmatrix%*%(diag(1/scale))
+  return(list(covmatrix = covmatrix, cormatrix = cormatrix))
+
+}
+
 
 detectf = function(xvec, mu, Sigma, th){
   p = length(xvec)

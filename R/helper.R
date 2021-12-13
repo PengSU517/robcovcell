@@ -27,11 +27,11 @@ genevar = function(n = 100, p = 15, e = 0.2, r = 0.9, gamma = 10, mu = NULL, sig
 
   if(type == "blocked"){
 
-    bi1 = matrix(0, nrow = n, ncol = p-5)
-    #bi2 = matrix(sample(c(rep(1,e*n),rep(0,((1-e)*n)))), nrow = n, ncol = 5)
-    bi2 = apply(matrix(0, nrow = n, ncol = 5), 2,
+    bi1 = matrix(0, nrow = n, ncol = 0.8*p)
+    bi2 = matrix(sample(c(rep(1,e*n),rep(0,((1-e)*n)))), nrow = n, ncol = 0.1*p)
+    bi3 = apply(matrix(0, nrow = n, ncol = 0.1*p), 2,
                 function(xvec) {xvec[sample(x = 1:n, size = e*n)] = 1; return(xvec)})
-    bi = cbind(bi1, bi2)
+    bi = cbind(bi1, bi2, bi3)
 
     outl = rnorm(n = n*p, mean = gamma, sd = 1)
     rsign = sample(c(-1,1), size = n*p, replace = T)

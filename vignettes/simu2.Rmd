@@ -21,20 +21,40 @@ library(cellWise)
 library(snipEM)
 #remotes::install_github('cran/snipEM')
 ```
+# Methodology
+
+Given a raw dataset, sometimes it includes many different kinds of outliers such as rowwise outliers and cellwise outliers. We'd like to divide every five columns into one group. A few cells are detected as outliers in the first group because they are clean variables. In the second group, some rows are detected as oultiers entirely. In the thrid group, some rows are outlying as well but not same as the second group. Many cellwise outliers are detected in the fourth group.
+
+A classic technique to estimate covariance matrix (under cellwise contamination) is Orthogonalized Gnanadesikan-Kettenring (OGK) Covariance Matrix estimator (Maronna and Zamar, 2002), the main idea of which is pairwise estimation. However, under knowing group labels, we could just estimate covariance matrix by grouped cellwise weights. 
+
+A second approach is the snipEM procedure proposed by Farcomeni (2014). Its first step flags cellwise outliers in each variable separately regard them as snipped cells (missing values). The second step tries many interchanges that unsnip a randomly chosen snipped cell and at the same time snip a randomly chosen unsnipped cell, and only keeps an interchange when it increases the partial Gaussian likelihood.
+
+We'd like to explore a new approach to obtain robust estimation of the covariance matrix. THis estimator is based on blocking and conquering idea. 
+
+- First step, we use cellwise-robust estimators (DI estimator, proposed by Raymaekers and Rousseeuw, 2018) to obtain an initial estimation of the covariance matrix. 
+
+- Second step, for variables detected as clean columns or having rowwise outliers, we use rowwise-robust estimators (MCD estimator, proposed by Rousseeuw and van Driessen, 1999) to obtain a robust estimation of the covariance matrix of those variables and replace it with the corresponding block in the initial estimation. 
+
+- Last step, for variables detected as clean columns, we use sample covariance matrix as an estimation. 
+
+
+The second step could be skiped because the DI estimator could deal with all kinds of outliers together. For simplcity in notation, we denote the estimator without the second step as Block, and denote the estimator with the second step as Block2.
 
 
 # Simulation
-In our simulations, we set $n = 100$, $p = 50$, $\mathbf{x}_i$ is sampled from $N(\pmb 10,\pmb\Sigma_{xx})$. The correlation structure among variables is given by $\Sigma _{ij} = \rho^{|i-j|}$ and we set $\rho = 0.5$. 
+In our simulations, we set $n = 100$, $p = 50, 100$, $\mathbf{x}_i$ is sampled from $N(\pmb 0,\pmb\Sigma_{xx})$. The correlation structure among variables is given by $\Sigma _{ij} = \rho^{|i-j|}$ and we set $\rho = 0.5$. 
 
-Most variables are set as clean variables, which means they don't include any outliers. Only a few (10\%) variables are contaminated. Contamination proportions are set as $2\%$, $5\%$, $10\%$ for those variables separately. Outlying values are randomly generated from $0.5 N(\gamma, 1)+ 0.5N(-\gamma, 1)$ and we set rowwise outlying variables and cellwise outlying variables seperately. We vary $\gamma$ over the set $\{0,2,4,6,8,10\}$ to simulate outliers with different magnitudes. When we apply appropriate $\gamma$'s, those cells will be outlying cells but not not necessarily marginal outliers.
+Most variables (80\%) are set as clean variables, which means they don't include any outliers. A few (10\%) variables are designed to be cellwise contaminated. Contamination proportions are set as $2\%$, $5\%$, $10\%$ for those variables separately. Besides, 10\% variables are designed to be rowwise contaminated, which means they have same outying rows (observations). Contamination proportions are set same as cellwise outlying variables. 
+
+Outlying values are randomly generated from $0.5 N(\gamma, 1)+ 0.5N(-\gamma, 1)$ and we set rowwise outlying variables and cellwise outlying variables seperately. We vary $\gamma$ over the set $\{1, \ldots, 10\}$ to simulate outliers with different magnitudes. When we apply appropriate $\gamma$'s, those cells will be outlying cells but not not necessarily marginal outliers.
 
 
 ```{r echo=FALSE, eval = T}
 
 {
   ms = 1:2
-  ps = 10
-  es = c(0, 0.1, 0.2)
+  ps = c(50,100)
+  es = c(0.05, 0.1, 0.2)
   gammas = seq(1, 10, 1)
 }
 
@@ -67,7 +87,12 @@ Most variables are set as clean variables, which means they don't include any ou
 
   Blockf = function(x){
     p = dim(x)[2]
-    covBC(x, group = c(rep(1,p-5), rep(2,5)))$covmatrix
+    covBC(x, group = c(rep(1,0.8*p), rep(3,0.2*p)))$covmatrix
+  }
+  
+  Block2f = function(x){
+    p = dim(x)[2]
+    covBC2(x, group = c(rep(1,0.8*p), rep(2,0.1*p), rep(3,0.1*p)))$covmatrix
   }
   
   DIf = function(x){
@@ -87,6 +112,7 @@ Most variables are set as clean variables, which means they don't include any ou
               snipEM = snipEMf,
               DDC = DDCf,
               Block = Blockf,
+              Block2 = Block2f,
               DI = DIf,
               DE = DEf
               
@@ -108,7 +134,7 @@ registerDoParallel(cores=20)
                       .packages = c("robustbase","robcovsel", "robcovcell"))%:%
       foreach(p = ps)%:%
       foreach(e = es)%:%
-      foreach(gamma = gammas)%do% {
+      foreach(gamma = gammas)%dopar% {
         
         seed = m
         set.seed(seed = seed)
@@ -123,6 +149,7 @@ registerDoParallel(cores=20)
                    snipem = NULL,
                    ddc = NULL,
                    block = NULL,
+                   block2 = NULL,
                    di = NULL,
                    de = NULL
                    )
